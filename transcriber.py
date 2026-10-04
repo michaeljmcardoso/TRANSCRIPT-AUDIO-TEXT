@@ -9,6 +9,8 @@ import whisperx
 from whisperx.diarize import DiarizationPipeline
 from dotenv import load_dotenv
 
+from ffmpeg_setup import ensure_ffmpeg_available
+
 load_dotenv()
 
 # ---------- Configurações globais ----------
@@ -55,6 +57,7 @@ def transcribe_and_diarize(
             print(msg)
 
     # ---------- 1. Carregar áudio ----------
+    ensure_ffmpeg_available()
     log("🎧 Carregando áudio...")
     audio = whisperx.load_audio(audio_path)
 

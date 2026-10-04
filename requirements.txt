@@ -10,5 +10,6 @@ torchvision==0.23.0+cpu
 streamlit>=1.40,<2
 whisperx>=3.8.6,<4
 python-dotenv>=1.0,<2
+imageio-ffmpeg>=0.5.1,<1
 google-genai>=1.0.0,<3
 python-docx>=1.1.2,<2
