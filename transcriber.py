@@ -3,6 +3,7 @@ Módulo responsável por transcrever áudio com WhisperX + diarização de falan
 """
 import os
 from pathlib import Path
+from typing import Callable
 
 import torch
 import whisperx
@@ -34,7 +35,7 @@ def transcribe_and_diarize(
     min_speakers: int | None = None,
     max_speakers: int | None = None,
     language: str | None = None,
-    progress_callback=None,
+    progress_callback: Callable[[str, float], None] | None = None,
 ):
     """
     Transcreve o áudio, faz alinhamento e diarização.
@@ -50,19 +51,23 @@ def transcribe_and_diarize(
 
     audio_path = str(Path(audio_path).resolve())
 
-    def log(msg: str):
+    def log(msg: str, progress: float):
         if progress_callback:
-            progress_callback(msg)
+            progress_callback(msg, progress)
         else:
             print(msg)
 
     # ---------- 1. Carregar áudio ----------
     ensure_ffmpeg_available()
-    log("🎧 Carregando áudio...")
+    log("🎧 Carregando áudio...", 0.05)
     audio = whisperx.load_audio(audio_path)
+    log("✅ Áudio carregado.", 0.1)
 
     # ---------- 2. Transcrição ----------
-    log(f"📝 Transcrevendo com modelo '{WHISPER_MODEL}' (isso pode demorar um pouco)...")
+    log(
+        f"📝 Transcrevendo com modelo '{WHISPER_MODEL}' (isso pode demorar um pouco)...",
+        0.12,
+    )
     model = whisperx.load_model(
         WHISPER_MODEL,
         DEVICE,
@@ -71,10 +76,10 @@ def transcribe_and_diarize(
     )
     result = model.transcribe(audio, batch_size=BATCH_SIZE, language=language)
     detected_lang = result.get("language", language or "?")
-    log(f"✅ Transcrição concluída. Idioma detectado: {detected_lang}")
+    log(f"✅ Transcrição concluída. Idioma detectado: {detected_lang}", 0.52)
 
     # ---------- 3. Alinhamento (timestamps por palavra) ----------
-    log("🎯 Alinhando timestamps...")
+    log("🎯 Alinhando timestamps...", 0.55)
     try:
         model_a, metadata = whisperx.load_align_model(
             language_code=detected_lang, device=DEVICE
@@ -87,12 +92,15 @@ def transcribe_and_diarize(
             DEVICE,
             return_char_alignments=False,
         )
-        log("✅ Alinhamento concluído.")
+        log("✅ Alinhamento concluído.", 0.7)
     except Exception as e:
-        log(f"⚠️ Alinhamento falhou ({e}). Prosseguindo sem alinhamento.")
+        log(
+            f"⚠️ Alinhamento falhou ({e}). Prosseguindo sem alinhamento.",
+            0.7,
+        )
 
     # ---------- 4. Diarização ----------
-    log("🗣️ Identificando falantes (diarização)...")
+    log("🗣️ Identificando falantes (diarização)...", 0.72)
     diarize_model = DiarizationPipeline(
         token=hf_token,
         device=DEVICE,
@@ -102,10 +110,12 @@ def transcribe_and_diarize(
         min_speakers=min_speakers,
         max_speakers=max_speakers,
     )
+    log("✅ Diarização concluída.", 0.93)
 
     # ---------- 5. Mesclar transcrição + diarização ----------
-    log("🔗 Mesclando transcrição com falantes...")
+    log("🔗 Mesclando transcrição com falantes...", 0.95)
     result = whisperx.assign_word_speakers(diarize_segments, result)
+    log("✅ Falantes associados à transcrição.", 0.98)
 
     # ---------- 6. Formatar saída ----------
     segments = []
@@ -140,7 +150,7 @@ def transcribe_and_diarize(
 
     full_text = "\n\n".join(lines)
 
-    log("🎉 Processamento concluído!")
+    log("🎉 Processamento concluído!", 1.0)
     return {
         "segments": segments,
         "language": detected_lang,

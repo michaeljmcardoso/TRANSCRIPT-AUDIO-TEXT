@@ -3,6 +3,8 @@ from io import BytesIO
 import re
 
 from docx import Document
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from docx.shared import Pt
 
 
@@ -19,6 +21,15 @@ def format_transcript_by_speaker(text: str, speaker_map: dict[str, str]) -> str:
 def transcript_to_docx(text: str) -> bytes:
     """Create a DOCX document with speaker names emphasized."""
     document = Document()
+    document.core_properties.language = "pt-BR"
+
+    normal_style = document.styles["Normal"]
+    style_properties = normal_style._element.get_or_add_rPr()
+    language = style_properties.find(qn("w:lang"))
+    if language is None:
+        language = OxmlElement("w:lang")
+        style_properties.append(language)
+    language.set(qn("w:val"), "pt-BR")
 
     for block in text.split("\n\n"):
         if not block.strip():

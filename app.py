@@ -25,6 +25,8 @@ st.set_page_config(
 DEFAULTS = {
     "result": None,
     "audio_name": None,
+    "audio_path": None,
+    "audio_format": None,
     "speaker_map": {},
     "gemini_sugestoes": {},   # sugestões do Gemini separadas
     "gemini_raw_response": None,
@@ -36,6 +38,9 @@ for k, v in DEFAULTS.items():
 
 def reset_session():
     """Limpa tudo para começar uma nova transcrição."""
+    audio_path = st.session_state.audio_path
+    if audio_path and os.path.exists(audio_path):
+        os.unlink(audio_path)
     for k, v in DEFAULTS.items():
         st.session_state[k] = {} if isinstance(v, dict) else None
 
@@ -67,6 +72,18 @@ def aplicar_sugestoes(sugestoes: dict[str, str]):
             st.session_state.speaker_map[spk] = nome
 
 
+AUDIO_FORMATS = {
+    ".flac": "audio/flac",
+    ".m4a": "audio/mp4",
+    ".mp3": "audio/mpeg",
+    ".mp4": "audio/mp4",
+    ".ogg": "audio/ogg",
+    ".opus": "audio/ogg",
+    ".wav": "audio/wav",
+    ".webm": "audio/webm",
+}
+
+
 st.title("🎙️ Transcrição de Áudio com Separação de Falantes")
 st.caption("WhisperX (transcrição local) + Gemini (detecção de nomes)")
 
@@ -76,11 +93,7 @@ with st.sidebar:
 
     hf_token = get_hf_token()
 
-    gemini_api_key = st.text_input(
-        "Chave da API do Gemini",
-        value=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", ""),
-        type="password",
-    )
+    gemini_api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
 
     gemini_model = os.getenv("GEMINI_MODEL", "").strip() or "gemini-3.8-flash"
 
@@ -96,7 +109,7 @@ with st.sidebar:
     st.divider()
 
     if st.session_state.result is not None:
-        if st.button("🗑️ Limpar sessão", use_container_width=True, type="secondary"):
+        if st.button("🗑️ Limpar sessão", width="stretch", type="secondary"):
             reset_session()
             st.rerun()
 
@@ -121,15 +134,18 @@ if st.session_state.result is None:
 
             suffix = Path(uploaded.name).suffix
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                tmp.write(uploaded.read())
+                tmp.write(uploaded.getvalue())
                 tmp_path = tmp.name
 
             status_box = st.status("Iniciando...", expanded=True)
+            progress_bar = st.progress(0.0, text="Aguardando início...")
 
-            def progress(msg: str):
+            def progress(msg: str, amount: float):
                 status_box.update(label=msg, state="running")
                 status_box.write(msg)
+                progress_bar.progress(amount, text=f"{amount:.0%} — {msg}")
 
+            transcription_succeeded = False
             try:
                 result = transcribe_and_diarize(
                     audio_path=tmp_path,
@@ -141,16 +157,21 @@ if st.session_state.result is None:
 
                 st.session_state.result = result
                 st.session_state.audio_name = uploaded.name
+                st.session_state.audio_path = tmp_path
+                st.session_state.audio_format = AUDIO_FORMATS.get(
+                    suffix.lower(), uploaded.type or "audio/wav"
+                )
                 st.session_state.speaker_map = {spk: "" for spk in result["speakers"]}
                 st.session_state.gemini_sugestoes = {}
 
+                transcription_succeeded = True
                 st.rerun()
 
             except Exception as e:
                 status_box.update(label="❌ Erro", state="error")
                 st.exception(e)
             finally:
-                if os.path.exists(tmp_path):
+                if not transcription_succeeded and os.path.exists(tmp_path):
                     os.unlink(tmp_path)
 
 
@@ -163,6 +184,10 @@ else:
         f"Idioma: **{result['language']}** — "
         f"Falantes: **{len(result['speakers'])}**"
     )
+    st.audio(
+        st.session_state.audio_path,
+        format=st.session_state.audio_format,
+    )
 
     # ---------- BOTÃO GEMINI ----------
     st.subheader("🤖 Detecção de nomes com Gemini")
@@ -174,9 +199,16 @@ else:
 
     col_g1, col_g2 = st.columns([1, 3])
     with col_g1:
-        if st.button("✨ Sugerir nomes via Gemini", type="primary", use_container_width=True):
+        if st.button(
+            "✨ Sugerir nomes via Gemini",
+            type="primary",
+            width="stretch",
+        ):
             if not gemini_api_key:
-                st.error("Configure a chave da API do Gemini na barra lateral.")
+                st.error(
+                    "Configure GEMINI_API_KEY ou GOOGLE_API_KEY no arquivo .env "
+                    "para usar a sugestão de nomes."
+                )
             else:
                 with st.spinner(f"Consultando {gemini_model}..."):
                     try:
@@ -275,7 +307,7 @@ else:
             data=transcript_to_docx(full_text_mapped),
             file_name=f"{Path(st.session_state.audio_name).stem}_transcricao.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True,
+            width="stretch",
         )
 
     with col_b:
@@ -289,7 +321,7 @@ else:
             data=timestamps_text,
             file_name=f"{Path(st.session_state.audio_name).stem}_timestamps.txt",
             mime="text/plain",
-            use_container_width=True,
+            width="stretch",
         )
 
     with col_c:
@@ -302,5 +334,5 @@ else:
             data=plain_text,
             file_name=f"{Path(st.session_state.audio_name).stem}_texto_puro.txt",
             mime="text/plain",
-            use_container_width=True,
+            width="stretch",
         )
