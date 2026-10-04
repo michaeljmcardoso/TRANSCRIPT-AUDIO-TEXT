@@ -1,0 +1,58 @@
+# Ambiente virtual
+transcript/
+.agents/
+/.agents
+.test
+venv/
+env/
+.venv/
+
+# Segredos — NUNCA versionar
+.env
+.env.local
+*.key
+*.pem
+
+# Banco de dados OPERACIONAL (raiz — nunca versionar)
+/sisreq.db-journal
+/sisreq.db-wal
+/sisreq.db-shm
+
+# Bancos antigos/alternativos
+sisreq1.db
+db.sqlite3
+db.sqlite3-journal
+
+# Backups temporários
+*.db.bak
+backup_*.db
+
+# ⚠️ IMPORTANTE: NÃO usar `*.db` genérico!
+# Ele ignoraria dados/sisreq.db (o backup versionado intencionalmente).
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+/tests/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# ══════════════════════════════════════════════
+# Exceções explícitas — garante que o backup
+# versionado NÃO seja ignorado
+# ══════════════════════════════════════════════
+!dados/
+!dados/**
