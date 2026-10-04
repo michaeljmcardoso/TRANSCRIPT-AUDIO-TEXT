@@ -1,6 +1,9 @@
 # WhisperX is configured for CPU. Use CPU-only PyTorch wheels to avoid pulling
 # the much larger CUDA runtime into Streamlit Community Cloud.
---extra-index-url https://download.pytorch.org/whl/cpu
+# Expose CPU wheels without changing the package index used for dependencies.
+--find-links https://download.pytorch.org/whl/cpu/torch/
+--find-links https://download.pytorch.org/whl/cpu/torchaudio/
+--find-links https://download.pytorch.org/whl/cpu/torchvision/
 torch==2.8.0+cpu
 torchaudio==2.8.0+cpu
 torchvision==0.23.0+cpu
